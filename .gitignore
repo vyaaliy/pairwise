@@ -16,12 +16,17 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
-</｜DSML｜>
-<task_progress>
-- [x] Инициализировать Git
-- [x] Создать .gitignore
-- [ ] Сделать коммит
-- [ ] Добавить remote origin
-- [ ] Запушить в GitHub
-</task_progress>
-</write_to_file>
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# macOS
+*.app/
+
+# DMG installers (release artifacts)
+# *.dmg  — uncomment to ignore
+
+# Windows installer (release artifact)
+# Pairwise-Windows-Setup.exe  — uncomment to ignore

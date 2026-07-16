@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QFileDialog,
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QClipboard
 
 from typing import Dict, List
 
@@ -31,27 +29,35 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
 
         # --- Таблица параметров ---
         self.param_table = QTableWidget(0, 2)
         self.param_table.setHorizontalHeaderLabels(["Параметр", "Значения (через запятую)"])
         self.param_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.param_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.param_table.setAlternatingRowColors(True)
+        self.param_table.itemChanged.connect(self._update_buttons_state)
         layout.addWidget(self.param_table)
 
         # --- Кнопки управления параметрами ---
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
 
         self.add_btn = QPushButton("Добавить параметр")
         self.add_btn.clicked.connect(self.add_parameter)
         btn_layout.addWidget(self.add_btn)
 
-        self.remove_btn = QPushButton("Удалить выбранный параметр")
+        self.remove_btn = QPushButton("Удалить выбранный")
         self.remove_btn.clicked.connect(self.remove_parameter)
         btn_layout.addWidget(self.remove_btn)
 
+        btn_layout.addStretch()
+
         self.generate_btn = QPushButton("Сгенерировать")
         self.generate_btn.clicked.connect(self.generate)
+        self.generate_btn.setEnabled(False)
         btn_layout.addWidget(self.generate_btn)
 
         layout.addLayout(btn_layout)
@@ -60,38 +66,53 @@ class MainWindow(QMainWindow):
         self.result_table = QTableWidget(0, 0)
         self.result_table.setHorizontalHeaderLabels(["Результат"])
         self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.result_table.setAlternatingRowColors(True)
+        self.result_table.setEditTriggers(QTableWidget.NoEditTriggers)
         layout.addWidget(self.result_table)
 
         # --- Кнопки экспорта ---
         export_layout = QHBoxLayout()
+        export_layout.setSpacing(8)
 
         self.export_csv_btn = QPushButton("Экспорт в CSV")
         self.export_csv_btn.clicked.connect(self.export_csv)
+        self.export_csv_btn.setEnabled(False)
         export_layout.addWidget(self.export_csv_btn)
 
         self.copy_btn = QPushButton("Копировать в буфер обмена")
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
+        self.copy_btn.setEnabled(False)
         export_layout.addWidget(self.copy_btn)
 
+        export_layout.addStretch()
         layout.addLayout(export_layout)
 
         # Хранилище последнего сгенерированного результата
         self._last_result: List[Dict[str, str]] = []
 
+    def _update_buttons_state(self):
+        """Обновляет состояние кнопок в зависимости от наличия данных."""
+        has_rows = self.param_table.rowCount() > 0
+        self.generate_btn.setEnabled(has_rows)
+
     def add_parameter(self):
         """Добавляет новую строку в таблицу параметров."""
+        self.param_table.blockSignals(True)
         row = self.param_table.rowCount()
         self.param_table.insertRow(row)
         self.param_table.setItem(row, 0, QTableWidgetItem(""))
         self.param_table.setItem(row, 1, QTableWidgetItem(""))
+        self.param_table.blockSignals(False)
+        self._update_buttons_state()
 
     def remove_parameter(self):
         """Удаляет выбранную строку из таблицы параметров."""
         current_row = self.param_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "Предупреждение", "Выберите параметр для удаления.")
+            QMessageBox.warning(self, "Удаление", "Выберите строку для удаления.")
             return
         self.param_table.removeRow(current_row)
+        self._update_buttons_state()
 
     def generate(self):
         """Считывает параметры, генерирует pairwise-комбинации и выводит результат."""
@@ -107,19 +128,18 @@ class MainWindow(QMainWindow):
         # Парсим и валидируем
         try:
             parameters = parse_parameters(raw_params)
-        except ValueError as e:
-            QMessageBox.warning(self, "Ошибка ввода", str(e))
-            return
-
-        if not parameters:
-            QMessageBox.warning(self, "Ошибка", "Нет параметров для генерации.")
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка ввода", str(error))
             return
 
         # Генерируем pairwise-комбинации
         result = generate_pairwise(parameters)
 
         if not result:
-            QMessageBox.information(self, "Результат", "Не удалось сгенерировать комбинации.")
+            QMessageBox.information(
+                self, "Результат", "Не удалось сгенерировать комбинации.\n"
+                "Проверьте корректность введённых данных."
+            )
             return
 
         # Сохраняем результат для экспорта/копирования
@@ -133,9 +153,13 @@ class MainWindow(QMainWindow):
 
         for row_idx, combo in enumerate(result):
             for col_idx, name in enumerate(param_names):
-                self.result_table.setItem(row_idx, col_idx, QTableWidgetItem(combo[name]))
+                self.result_table.setItem(
+                    row_idx, col_idx, QTableWidgetItem(combo[name])
+                )
 
         self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.export_csv_btn.setEnabled(True)
+        self.copy_btn.setEnabled(True)
 
     def export_csv(self):
         """Экспортирует результат в CSV-файл."""
@@ -153,7 +177,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Экспорт", f"Данные сохранены в:\n{filepath}")
 
     def copy_to_clipboard(self):
-        """Копирует результат в буфер обмена в формате TSV (для Excel / Google Sheets)."""
+        """Копирует результат в буфер обмена в формате TSV для Excel / Google Sheets."""
         if not self._last_result:
             QMessageBox.warning(self, "Копирование", "Сначала сгенерируйте комбинации.")
             return
@@ -162,5 +186,8 @@ class MainWindow(QMainWindow):
         clipboard = QApplication.clipboard()
         clipboard.setText(tsv_text)
         QMessageBox.information(
-            self, "Копирование", "Данные скопированы в буфер обмена.\nВставьте в Excel или Google Sheets."
+            self,
+            "Копирование",
+            "Данные скопированы в буфер обмена.\n"
+            "Вставьте в Excel или Google Sheets (Ctrl+V / Cmd+V).",
         )

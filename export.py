@@ -1,9 +1,9 @@
 """
 Модуль для экспорта сгенерированных тестовых данных.
-
-Экспорт будет реализован позже.
 """
 
+import csv
+import io
 from typing import Dict, List
 
 
@@ -15,27 +15,33 @@ def export_to_csv(data: List[Dict[str, str]], filepath: str) -> None:
         data: Список словарей с тестовыми комбинациями.
         filepath: Путь к файлу для сохранения.
     """
-    # Заглушка
-    pass
+    if not data:
+        return
+
+    fieldnames = list(data[0].keys())
+
+    with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
 
 
-def export_to_json(data: List[Dict[str, str]], filepath: str) -> None:
+def format_as_tsv(data: List[Dict[str, str]]) -> str:
     """
-    Экспортирует тестовые данные в JSON-файл.
+    Форматирует тестовые данные как TSV (tab-separated) для вставки в Excel / Google Sheets.
 
     Args:
         data: Список словарей с тестовыми комбинациями.
-        filepath: Путь к файлу для сохранения.
+
+    Returns:
+        Строка в формате TSV.
     """
-    # Заглушка
-    pass
-</｜DSML｜>
-<task_progress>
-- [x] Создать main.py
-- [x] Создать ui.py
-- [x] Создать pairwise_engine.py
-- [x] Создать export.py
-- [ ] Установить PySide6
-- [ ] Проверить запуск приложения
-</task_progress>
-</write_to_file>
+    if not data:
+        return ""
+
+    fieldnames = list(data[0].keys())
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter="\t")
+    writer.writeheader()
+    writer.writerows(data)
+    return output.getvalue()

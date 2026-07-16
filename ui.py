@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QApplication,
     QMainWindow,
     QWidget,
     QVBoxLayout,
@@ -8,10 +9,15 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QMessageBox,
+    QFileDialog,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QClipboard
+
+from typing import Dict, List
 
 from pairwise_engine import generate_pairwise, parse_parameters
+from export import export_to_csv, format_as_tsv
 
 
 class MainWindow(QMainWindow):
@@ -55,6 +61,22 @@ class MainWindow(QMainWindow):
         self.result_table.setHorizontalHeaderLabels(["Результат"])
         self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         layout.addWidget(self.result_table)
+
+        # --- Кнопки экспорта ---
+        export_layout = QHBoxLayout()
+
+        self.export_csv_btn = QPushButton("Экспорт в CSV")
+        self.export_csv_btn.clicked.connect(self.export_csv)
+        export_layout.addWidget(self.export_csv_btn)
+
+        self.copy_btn = QPushButton("Копировать в буфер обмена")
+        self.copy_btn.clicked.connect(self.copy_to_clipboard)
+        export_layout.addWidget(self.copy_btn)
+
+        layout.addLayout(export_layout)
+
+        # Хранилище последнего сгенерированного результата
+        self._last_result: List[Dict[str, str]] = []
 
     def add_parameter(self):
         """Добавляет новую строку в таблицу параметров."""
@@ -100,6 +122,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Результат", "Не удалось сгенерировать комбинации.")
             return
 
+        # Сохраняем результат для экспорта/копирования
+        self._last_result = result
+
         # Заполняем таблицу результатов
         param_names = list(parameters.keys())
         self.result_table.setColumnCount(len(param_names))
@@ -111,3 +136,31 @@ class MainWindow(QMainWindow):
                 self.result_table.setItem(row_idx, col_idx, QTableWidgetItem(combo[name]))
 
         self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+    def export_csv(self):
+        """Экспортирует результат в CSV-файл."""
+        if not self._last_result:
+            QMessageBox.warning(self, "Экспорт", "Сначала сгенерируйте комбинации.")
+            return
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Сохранить как CSV", "", "CSV файлы (*.csv)"
+        )
+        if not filepath:
+            return
+
+        export_to_csv(self._last_result, filepath)
+        QMessageBox.information(self, "Экспорт", f"Данные сохранены в:\n{filepath}")
+
+    def copy_to_clipboard(self):
+        """Копирует результат в буфер обмена в формате TSV (для Excel / Google Sheets)."""
+        if not self._last_result:
+            QMessageBox.warning(self, "Копирование", "Сначала сгенерируйте комбинации.")
+            return
+
+        tsv_text = format_as_tsv(self._last_result)
+        clipboard = QApplication.clipboard()
+        clipboard.setText(tsv_text)
+        QMessageBox.information(
+            self, "Копирование", "Данные скопированы в буфер обмена.\nВставьте в Excel или Google Sheets."
+        )

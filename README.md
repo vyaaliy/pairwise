@@ -2,8 +2,6 @@
 
 Инструмент для QA-инженеров: генерация тестовых наборов методом Pairwise (All-Pairs Testing) с удобным графическим интерфейсом.
 
-![Pairwise](pairwise_icon.png)
-
 ## Возможности
 
 - Ввод параметров и их значений через таблицу
@@ -81,7 +79,7 @@ chmod +x build_macos.sh
 - **Python 3** — язык программирования
 - **PySide6** — графический интерфейс (Qt)
 - **allpairspy** — алгоритм pairwise-генерации
-- **py2app** — сборка .app для macOS
+- **PyInstaller** — сборка .app для macOS
 - **PyInstaller** — сборка .exe для Windows
 - **Inno Setup** — установщик для Windows
 - **create-dmg** / hdiutil — создание .dmg для macOS
